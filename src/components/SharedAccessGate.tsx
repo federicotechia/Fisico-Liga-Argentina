@@ -41,6 +41,7 @@ export const SharedAccessGate: React.FC<SharedAccessGateProps> = ({ children }) 
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const revisionRef = useRef(0);
+  const authUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -48,14 +49,19 @@ export const SharedAccessGate: React.FC<SharedAccessGateProps> = ({ children }) 
     supabase.auth.getSession().then(({ data, error }) => {
       if (!alive) return;
       if (error) setAuthError(error.message);
+      authUserIdRef.current = data.session?.user.id ?? null;
       setAuthSession(data.session);
       setAuthReady(true);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUserId = session?.user.id ?? null;
+      if (authUserIdRef.current !== nextUserId) {
+        authUserIdRef.current = nextUserId;
+        setShared(null);
+        setLoadError(null);
+        setSyncError(null);
+      }
       setAuthSession(session);
-      setShared(null);
-      setLoadError(null);
-      setSyncError(null);
     });
     return () => {
       alive = false;

@@ -1,0 +1,8 @@
+{
+  "name": "CAD Norte Armstrong - Catapult Basketball Dashboard",
+  "description": "Dashboard oficial de monitoreo de carga, fatiga y prevención de lesiones del Club Atlético Deportivo Norte (Armstrong, Santa Fe) en La Liga Argentina de Básquetbol.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -204,7 +204,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   : 'text-blue-200 hover:text-white hover:bg-blue-900/40'
               }`}
             >
-              Plantel ({currentSession.records.length})
+              Plantel ({currentSession?.records.length ?? 0})
             </button>
           </div>
 
@@ -289,7 +289,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               activeView === 'roster' ? 'text-sky-400 bg-blue-900/30' : 'text-blue-300/80'
             }`}
           >
-            Plantel ({currentSession.records.length})
+            Plantel ({currentSession?.records.length ?? 0})
           </button>
         </div>
       </div>

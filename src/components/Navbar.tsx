@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-[#071326]/95 backdrop-blur-md border-b border-blue-900/60 text-white shadow-2xl">
+    <header className="sticky top-0 z-40 w-full bg-[#071326] border-b border-blue-900/60 text-white shadow-2xl">
       
       {/* Top CAD Norte Institutional Bar (matches cadnorte.com.ar top strip) */}
       <div className="bg-[#040c1a] border-b border-blue-950/80 px-4 sm:px-6 lg:px-8 py-1.5 text-[11px] text-blue-200/80 flex flex-wrap items-center justify-between gap-2">
@@ -186,11 +186,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-blue-950/80 bg-[#040c1a] p-1.5 shadow-inner">
             <button
               onClick={onOpenSyncModal}
               title="Sincronizar pestañas de Google Sheets o importar OpenField"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-900/40 hover:bg-blue-800/50 text-sky-200 border border-blue-700/60 rounded-xl text-xs font-bold transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0b1d39] hover:bg-[#12305b] text-sky-200 border border-blue-700/60 rounded-xl text-xs font-bold transition-all shadow-sm"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-sky-400" />
               <span className="hidden sm:inline">Google Sheets</span>
@@ -208,7 +208,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={handleCopyLink}
               title="Copiar enlace para compartir con el Cuerpo Técnico"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-800/40 hover:bg-blue-700/50 text-blue-200 hover:text-white rounded-xl text-xs font-bold transition-all border border-blue-700/60 shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#102850] hover:bg-[#1a3a70] text-blue-200 hover:text-white rounded-xl text-xs font-bold transition-all border border-blue-700/60 shadow-sm"
             >
               {copiedLink ? (
                 <>

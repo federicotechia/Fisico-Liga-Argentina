@@ -6,13 +6,14 @@ body,
   width: 100%;
   min-height: 100%;
   margin: 0;
-  background: #051124;
+  background-color: #051124;
 }
 
 body {
   min-width: 320px;
   min-height: 100vh;
   overflow-x: hidden;
+  color-scheme: dark;
 }
 
 #root {

@@ -205,7 +205,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#051124] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white antialiased">
+    <div className="w-full min-h-screen bg-[#051124] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white antialiased">
       
       {/* Top Bar Navigation */}
       <Navbar

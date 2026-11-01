@@ -12,12 +12,15 @@ import {
   Check,
   Trash2
 } from 'lucide-react';
-import { Session } from '../types/catapult';
+import { SeasonCompetition, Session } from '../types/catapult';
 import { CADNorteLogo } from './CADNorteLogo';
 import { DateFilter } from './DateFilter';
 
 interface NavbarProps {
   sessions: Session[];
+  seasons: SeasonCompetition[];
+  selectedSeasonId: string;
+  onSelectSeason: (seasonId: string) => void;
   selectedSessionId: string;
   onSelectSession: (sessionId: string) => void;
   activeView: 'overview' | 'acwr' | 'roster';
@@ -35,6 +38,9 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({
   sessions,
+  seasons,
+  selectedSeasonId,
+  onSelectSeason,
   selectedSessionId,
   onSelectSession,
   activeView,
@@ -125,27 +131,44 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Session Selector & Date Filter */}
           <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 rounded-xl border border-blue-800/60 bg-[#091b38] px-3.5 py-2 shadow-inner">
+              <span className="text-xs font-semibold text-blue-200">Temporada:</span>
+              <select
+                value={selectedSeasonId}
+                onChange={event => onSelectSeason(event.target.value)}
+                aria-label="Seleccionar temporada y competencia"
+                className="max-w-[220px] bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
+              >
+                {seasons.map(season => (
+                  <option key={season.id} value={season.id} className="bg-[#071326] text-white">
+                    {season.season} · {season.competition}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-center gap-2 bg-[#091b38] px-3.5 py-2 rounded-xl border border-blue-800/60 shadow-inner">
               <Calendar className="w-4 h-4 text-blue-400 shrink-0" />
               <span className="text-xs font-semibold text-blue-200 hidden sm:inline">Sesión:</span>
               <select
-                value={selectedSessionId}
+                value={currentSession?.id || ''}
                 onChange={(e) => onSelectSession(e.target.value)}
                 className="bg-transparent text-sm font-bold text-white focus:outline-none cursor-pointer pr-2"
+                disabled={sessions.length === 0}
               >
+                {sessions.length === 0 && <option value="" className="bg-[#071326] text-white">Sin sesiones</option>}
                 {sessions.map((sess) => (
                   <option key={sess.id} value={sess.id} className="bg-[#071326] text-white">
                     {sess.title} ({sess.date}) - {Array.isArray(sess.type) ? sess.type.join(' + ') : sess.type}
                   </option>
                 ))}
               </select>
-              <button
+              {currentSession && <button
                 onClick={onOpenDeleteModal}
                 title={`Eliminar ${currentSession.title}`}
                 className="p-1 text-blue-300/70 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors border border-transparent hover:border-rose-500/30"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              </button>}
             </div>
             
             <DateFilter range={dateRange} onChange={onDateRangeChange} scope={analysisScope} onScopeChange={onAnalysisScopeChange} />

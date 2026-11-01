@@ -10,9 +10,11 @@ import {
   Zap, 
   ShieldAlert,
   Trophy,
-  Trash2
+  Trash2,
+  UserPlus,
+  CalendarPlus
 } from 'lucide-react';
-import { BasketballPosition, CalculatedPlayerMetrics, PlayerSummary, Session } from '../types/catapult';
+import { BasketballPosition, CalculatedPlayerMetrics, PlayerSummary, SeasonCompetition, Session } from '../types/catapult';
 import { getPositionColor, getRiskBadge } from '../utils/sportsScience';
 import { CADNorteLogo } from './CADNorteLogo';
 
@@ -23,6 +25,9 @@ interface RosterViewProps {
   onSelectPlayer: (playerId: string) => void;
   onEditPlayer: (player: PlayerSummary) => void;
   onDeletePlayer: (player: PlayerSummary) => void;
+  season: SeasonCompetition;
+  onAddPlayer: () => void;
+  onAddSeason: () => void;
 }
 
 export const RosterView: React.FC<RosterViewProps> = ({
@@ -32,6 +37,9 @@ export const RosterView: React.FC<RosterViewProps> = ({
   onSelectPlayer,
   onEditPlayer,
   onDeletePlayer,
+  season,
+  onAddPlayer,
+  onAddSeason,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('all');
@@ -54,7 +62,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-1.5">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-blue-600 text-white border border-blue-400/40 shadow-sm">
-              Plantel Profesional CAD Norte
+              Plantel · {season.season} · {season.competition}
             </span>
             <span className="text-xs text-blue-200/80">{roster.length} Jugadores Registrados · {sessions.length} sesiones analizadas</span>
           </div>
@@ -68,6 +76,12 @@ export const RosterView: React.FC<RosterViewProps> = ({
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2 relative z-10">
+          <button onClick={onAddPlayer} className="inline-flex items-center gap-1.5 rounded-xl border border-blue-400/40 bg-blue-600 px-3 py-2 text-xs font-black text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500">
+            <UserPlus className="h-3.5 w-3.5" /> Agregar jugador
+          </button>
+          <button onClick={onAddSeason} className="inline-flex items-center gap-1.5 rounded-xl border border-blue-800 bg-[#091b38] px-3 py-2 text-xs font-bold text-blue-100 hover:border-blue-500 hover:text-white">
+            <CalendarPlus className="h-3.5 w-3.5" /> Nueva temporada
+          </button>
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-blue-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input

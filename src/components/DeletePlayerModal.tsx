@@ -28,7 +28,7 @@ export const DeletePlayerModal: React.FC<DeletePlayerModalProps> = ({ player, on
             ¿Querés eliminar a <strong>{player.name}</strong> del plantel?
           </p>
           <p className="text-xs text-rose-200/80 bg-rose-950/40 border border-rose-800/50 rounded-xl p-3">
-            También se quitarán sus registros de todas las sesiones. Esta acción no se puede deshacer.
+            Se quitará del plantel de esta temporada. Las mediciones de sus sesiones se conservarán como historial.
           </p>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2.5 bg-blue-950 hover:bg-blue-900 text-blue-100 rounded-xl text-xs font-bold">

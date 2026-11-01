@@ -3,6 +3,12 @@ export type BasketballPosition = 'Base' | 'Escolta' | 'Alero' | 'Ala-Pivot' | 'P
 export type SessionType = 'Entrenamiento Táctico' | 'Partido Liga' | 'Físico / Potencia' | 'Tiro / Regenerativo' | '5v5 Competitivo';
 export type SessionTypeSelection = SessionType | SessionType[];
 
+export interface SeasonCompetition {
+  id: string;
+  season: string;
+  competition: string;
+}
+
 export interface PlayerSessionRecord {
   playerId: string;
   playerName: string;
@@ -20,6 +26,7 @@ export interface PlayerSessionRecord {
 
 export interface Session {
   id: string;
+  seasonId?: string;
   sessionNumber: number;
   date: string;           // YYYY-MM-DD or DD/MM/YYYY
   title: string;          // e.g. "SESIÓN 39"
@@ -33,6 +40,7 @@ export interface Session {
 
 export interface PlayerSummary {
   id: string;
+  seasonId?: string;
   name: string;
   position: BasketballPosition;
   jerseyNumber: number;

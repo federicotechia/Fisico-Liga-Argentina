@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { INITIAL_ROSTER, INITIAL_SESSIONS } from './data/initialSessions';
+import { INITIAL_ROSTER } from './data/initialSessions';
 import { CalculatedPlayerMetrics, PlayerSummary, SeasonCompetition, Session } from './types/catapult';
 import { calculatePlayerMetrics } from './utils/sportsScience';
 import { Navbar } from './components/Navbar';
@@ -21,65 +21,80 @@ import { EditPlayerModal } from './components/EditPlayerModal';
 import { DeletePlayerModal } from './components/DeletePlayerModal';
 import { AddPlayerModal } from './components/AddPlayerModal';
 import { AddSeasonModal } from './components/AddSeasonModal';
+import { DashboardData, DEFAULT_SEASON, LOCAL_STORAGE_KEYS, readLocalDashboardData } from './lib/localDashboardData';
+import { supabaseConfigured } from './lib/supabaseClient';
+import { SharedAccessGate } from './components/SharedAccessGate';
 
-
-
-const STORAGE_KEY = 'catapult_basketball_sessions_v1';
-const ROSTER_STORAGE_KEY = 'catapult_basketball_roster_v1';
-const SEASONS_STORAGE_KEY = 'catapult_basketball_seasons_v1';
-const ACTIVE_SEASON_STORAGE_KEY = 'catapult_basketball_active_season_v1';
-const DEFAULT_SEASON: SeasonCompetition = {
-  id: 'season-2026-2027-la-liga-argentina',
-  season: '2026-2027',
-  competition: 'La Liga Argentina',
-};
+interface DashboardAppProps {
+  cloudMode?: boolean;
+  initialData?: DashboardData;
+  cloudRevision?: number;
+  canImportLocal?: boolean;
+  isImporting?: boolean;
+  syncError?: string | null;
+  onSave?: (data: DashboardData) => Promise<boolean>;
+  onImportLocal?: () => Promise<void>;
+}
 
 export default function App() {
-  const [seasons, setSeasons] = useState<SeasonCompetition[]>(() => {
-    try {
-      const saved = localStorage.getItem(SEASONS_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error('Error loading saved seasons', e);
+  if (!supabaseConfigured) {
+    if (import.meta.env.PROD) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-[#051124] p-6 text-slate-100">
+          <div className="max-w-lg rounded-3xl border border-amber-800/70 bg-[#081836] p-8 text-center shadow-2xl">
+            <h1 className="text-xl font-black text-white">Falta configurar la base compartida</h1>
+            <p className="mt-3 text-sm text-blue-200">Esta publicación no va a mostrar una plantilla de ejemplo. Configurá las variables de Supabase en Vercel para habilitar el inicio de sesión y cargar los datos del equipo.</p>
+          </div>
+        </div>
+      );
     }
-    return [DEFAULT_SEASON];
-  });
+    return <DashboardApp />;
+  }
+
+  return (
+    <SharedAccessGate>
+      {shared => (
+        <DashboardApp
+          key="shared-dashboard"
+          cloudMode
+          initialData={shared.data}
+          cloudRevision={shared.revision}
+          canImportLocal={shared.canImportLocal}
+          isImporting={shared.isImporting}
+          syncError={shared.syncError}
+          onSave={shared.onSave}
+          onImportLocal={shared.onImportLocal}
+        />
+      )}
+    </SharedAccessGate>
+  );
+}
+
+function DashboardApp({
+  cloudMode = false,
+  initialData,
+  cloudRevision,
+  canImportLocal = false,
+  isImporting = false,
+  syncError,
+  onSave,
+  onImportLocal,
+}: DashboardAppProps) {
+  const [initialDataRef] = useState(() => initialData || readLocalDashboardData());
+  const [seasons, setSeasons] = useState<SeasonCompetition[]>(initialDataRef.seasons);
   const [activeSeasonId, setActiveSeasonId] = useState(() => {
     try {
-      return localStorage.getItem(ACTIVE_SEASON_STORAGE_KEY) || DEFAULT_SEASON.id;
+      return localStorage.getItem(LOCAL_STORAGE_KEYS.activeSeason) || DEFAULT_SEASON.id;
     } catch {
       return DEFAULT_SEASON.id;
     }
   });
-  // Load sessions from localStorage or default to initial authentic history
-  const [sessions, setSessions] = useState<Session[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(session => ({ ...session, seasonId: session.seasonId || DEFAULT_SEASON.id }));
-      }
-    } catch (e) {
-      console.error('Error loading saved sessions', e);
-    }
-    return INITIAL_SESSIONS.map(session => ({ ...session, seasonId: DEFAULT_SEASON.id }));
-  });
-
-  const [roster, setRoster] = useState<PlayerSummary[]>(() => {
-    try {
-      const saved = localStorage.getItem(ROSTER_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed.map(player => ({ ...player, seasonId: player.seasonId || DEFAULT_SEASON.id }));
-      }
-    } catch (e) {
-      console.error('Error loading saved roster', e);
-    }
-    return INITIAL_ROSTER.map(player => ({ ...player, seasonId: DEFAULT_SEASON.id }));
-  });
+  const [sessions, setSessions] = useState<Session[]>(initialDataRef.sessions);
+  const [roster, setRoster] = useState<PlayerSummary[]>(initialDataRef.roster);
+  const lastCloudSnapshotRef = React.useRef(cloudMode ? JSON.stringify(initialDataRef) : '');
+  const skipCloudSaveRef = React.useRef(cloudMode);
+  const liveDataRef = React.useRef({ seasons, roster, sessions });
+  liveDataRef.current = { seasons, roster, sessions };
   // Default to 'sesion-39' (the exact session from the user's uploaded PDF)
   const [selectedSessionId, setSelectedSessionId] = useState<string>('sesion-39');
   const [activeView, setActiveView] = useState<'overview' | 'acwr' | 'roster'>('overview');
@@ -130,31 +145,63 @@ export default function App() {
   };
 
 
-  // Sync to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-    } catch (e) {
-      console.error('Error saving sessions', e);
+  const savingCloudRef = React.useRef(false);
+  const runCloudSaveRef = React.useRef<() => Promise<void>>(async () => {});
+  runCloudSaveRef.current = async () => {
+    if (!cloudMode || !onSave || savingCloudRef.current) return;
+    const snapshot: DashboardData = {
+      seasons: liveDataRef.current.seasons,
+      roster: liveDataRef.current.roster,
+      sessions: liveDataRef.current.sessions,
+    };
+    const serialized = JSON.stringify(snapshot);
+    if (serialized === lastCloudSnapshotRef.current) return;
+    savingCloudRef.current = true;
+    const success = await onSave(snapshot);
+    if (success) lastCloudSnapshotRef.current = serialized;
+    savingCloudRef.current = false;
+    if (success && JSON.stringify(liveDataRef.current) !== lastCloudSnapshotRef.current) {
+      window.setTimeout(() => { void runCloudSaveRef.current(); }, 0);
     }
-  }, [sessions]);
+  };
 
   useEffect(() => {
     try {
-      localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(roster));
+      localStorage.setItem(LOCAL_STORAGE_KEYS.activeSeason, activeSeason.id);
     } catch (e) {
-      console.error('Error saving roster', e);
+      console.error('Error saving active season', e);
     }
-  }, [roster]);
+  }, [activeSeason.id]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(SEASONS_STORAGE_KEY, JSON.stringify(seasons));
-      localStorage.setItem(ACTIVE_SEASON_STORAGE_KEY, activeSeason.id);
-    } catch (e) {
-      console.error('Error saving seasons', e);
+    if (!cloudMode) {
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.sessions, JSON.stringify(sessions));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.roster, JSON.stringify(roster));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.seasons, JSON.stringify(seasons));
+      } catch (e) {
+        console.error('Error saving local dashboard data', e);
+      }
+      return;
     }
-  }, [seasons, activeSeason.id]);
+    if (skipCloudSaveRef.current) {
+      skipCloudSaveRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => { void runCloudSaveRef.current(); }, 250);
+    return () => window.clearTimeout(timer);
+  }, [cloudMode, sessions, roster, seasons, onSave]);
+
+  useEffect(() => {
+    if (!cloudMode || !initialData || cloudRevision === undefined) return;
+    const serialized = JSON.stringify(initialData);
+    if (serialized === lastCloudSnapshotRef.current) return;
+    lastCloudSnapshotRef.current = serialized;
+    skipCloudSaveRef.current = true;
+    setSeasons(initialData.seasons);
+    setRoster(initialData.roster);
+    setSessions(initialData.sessions);
+  }, [cloudMode, initialData, cloudRevision]);
 
   // Current session object
   const currentSession = useMemo(() => {
@@ -282,6 +329,24 @@ export default function App() {
         analysisScope={analysisScope}
         onAnalysisScopeChange={setAnalysisScope}
       />
+
+      {cloudMode && syncError && (
+        <div role="alert" className="mx-auto mt-4 w-full max-w-[1800px] rounded-xl border border-rose-800 bg-rose-950/50 px-4 py-3 text-xs text-rose-200">
+          {syncError}
+        </div>
+      )}
+
+      {cloudMode && canImportLocal && (
+        <div className="mx-auto mt-4 flex w-full max-w-[1800px] flex-col gap-3 rounded-2xl border border-amber-700/70 bg-amber-950/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-black text-white">Importá el plantel que ya tenés en este navegador</p>
+            <p className="mt-1 text-xs text-amber-100/80">La base compartida está vacía. Esta acción copia los datos locales y no borra el respaldo de este navegador.</p>
+          </div>
+          <button disabled={isImporting} onClick={() => onImportLocal?.()} className="shrink-0 rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-[#241300] hover:bg-amber-400 disabled:opacity-60">
+            {isImporting ? 'Importando…' : 'Importar datos locales'}
+          </button>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">

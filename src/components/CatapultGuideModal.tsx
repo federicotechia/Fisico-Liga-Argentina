@@ -88,7 +88,7 @@ export const CatapultGuideModal: React.FC<CatapultGuideModalProps> = ({
               <span>Volumen de Saltos (Tot Jump #) y Fatiga Patelar</span>
             </div>
             <p className="text-blue-200/90">
-              Los saltos reiterados generan estrés excéntrico sobre el tendón rotuliano y el tríceps sural. Jugadores con más de 120 saltos en una práctica (como Contrera o Scachi) deben tener ejercicios de salto limitados en la sesión siguiente para evitar picos de inflamación.
+              Los saltos reiterados generan estrés excéntrico sobre el tendón rotuliano y el tríceps sural. Un volumen superior a 120 saltos en una práctica puede justificar revisar la carga de saltos de la sesión siguiente, considerando el historial individual, la carga habitual y la respuesta del jugador. Este valor orienta el análisis y no debe tomarse como un umbral clínico aislado.
             </p>
           </div>
 

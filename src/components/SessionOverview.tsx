@@ -35,6 +35,14 @@ export const SessionOverview: React.FC<SessionOverviewProps> = ({
   onSelectPlayer,
   onOpenDeleteModal,
 }) => {
+  const sessionTypes = Array.isArray(session.type) ? session.type : [session.type];
+  const typeDurationSummary = sessionTypes
+    .map(sessionType => {
+      const minutes = session.typeDurations?.[sessionType];
+      return minutes ? `${sessionType}: ${minutes} min` : null;
+    })
+    .filter((entry): entry is string => entry !== null)
+    .join(' · ');
   const [positionFilter, setPositionFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [activeChartMetric, setActiveChartMetric] = useState<'totPL' | 'totDistM' | 'totJumps' | 'bmpBasketballLoad'>('totPL');
@@ -96,7 +104,7 @@ export const SessionOverview: React.FC<SessionOverviewProps> = ({
                 {session.title}
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#0f2d60] text-sky-200 border border-blue-800">
-                {session.type}
+                {sessionTypes.join(' + ')}
               </span>
               <span className="text-xs text-blue-200/90 flex items-center gap-1 font-medium">
                 <MapPin className="w-3 h-3 text-sky-400" />
@@ -106,7 +114,8 @@ export const SessionOverview: React.FC<SessionOverviewProps> = ({
                 • Fecha: <strong className="text-white">{session.date}</strong>
               </span>
               <span className="text-xs text-blue-300/80">
-                • Duración: <strong className="text-white">{session.durationMinutes} min</strong>
+                • Duración total: <strong className="text-white">{session.durationMinutes} min</strong>
+                {typeDurationSummary && <span className="ml-2 text-[11px] text-blue-200/70">({typeDurationSummary})</span>}
               </span>
             </div>
 

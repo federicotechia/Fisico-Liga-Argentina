@@ -3,6 +3,14 @@ import { X, Plus, Trash2, Check, ArrowRight } from 'lucide-react';
 import { BasketballPosition, PlayerSessionRecord, PlayerSummary, Session, SessionType } from '../types/catapult';
 import { CADNorteLogo } from './CADNorteLogo';
 
+const SESSION_TYPES: SessionType[] = [
+  '5v5 Competitivo',
+  'Entrenamiento Táctico',
+  'Partido Liga',
+  'Físico / Potencia',
+  'Tiro / Regenerativo',
+];
+
 interface AddSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -21,8 +29,11 @@ export const AddSessionModal: React.FC<AddSessionModalProps> = ({
   const [title, setTitle] = useState(`SESIÓN ${nextSessionNumber}`);
   const [sessionNumber, setSessionNumber] = useState(nextSessionNumber);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [type, setType] = useState<SessionType>('5v5 Competitivo');
-  const [durationMinutes, setDurationMinutes] = useState(75);
+  const [types, setTypes] = useState<SessionType[]>(['5v5 Competitivo']);
+  const [typeError, setTypeError] = useState('');
+  const [typeDurations, setTypeDurations] = useState<Partial<Record<SessionType, number>>>({
+    '5v5 Competitivo': 75,
+  });
   const [notes, setNotes] = useState('Práctica en Estadio Jorge Ferrero - CAD Norte');
 
   const [records, setRecords] = useState<PlayerSessionRecord[]>(
@@ -40,6 +51,7 @@ export const AddSessionModal: React.FC<AddSessionModalProps> = ({
       notes: '',
     }))
   );
+  const totalDurationMinutes = types.reduce((total, sessionType) => total + (typeDurations[sessionType] ?? 0), 0);
 
   if (!isOpen) return null;
 
@@ -51,15 +63,37 @@ export const AddSessionModal: React.FC<AddSessionModalProps> = ({
     });
   };
 
+  const toggleSessionType = (sessionType: SessionType) => {
+    setTypes(current => current.includes(sessionType)
+      ? current.filter(type => type !== sessionType)
+      : [...current, sessionType]
+    );
+    setTypeDurations(current => current[sessionType] === undefined
+      ? { ...current, [sessionType]: 0 }
+      : current
+    );
+    setTypeError('');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (types.length === 0) {
+      setTypeError('Seleccioná al menos un tipo de sesión.');
+      return;
+    }
+    const typeWithoutDuration = types.find(sessionType => (typeDurations[sessionType] ?? 0) <= 0);
+    if (typeWithoutDuration) {
+      setTypeError(`Indicá los minutos de ${typeWithoutDuration}.`);
+      return;
+    }
     const newSession: Session = {
       id: `sesion-${sessionNumber}-${Date.now().toString(36)}`,
       sessionNumber,
       date,
       title,
-      type,
-      durationMinutes,
+      type: types,
+      typeDurations,
+      durationMinutes: totalDurationMinutes,
       notes: notes || `Sesión ingresada por el preparador físico de CAD Norte`,
       googleSheetTab: `Sesión ${sessionNumber}`,
       records,
@@ -96,7 +130,7 @@ export const AddSessionModal: React.FC<AddSessionModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
           {/* Metadata Controls */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-[#040e21] p-4 rounded-2xl border border-blue-900/80">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 bg-[#040e21] p-4 rounded-2xl border border-blue-900/80">
             <div>
               <label className="text-xs font-bold text-blue-300 block mb-1">Nombre / Título</label>
               <input
@@ -117,31 +151,65 @@ export const AddSessionModal: React.FC<AddSessionModalProps> = ({
                 className="w-full bg-[#081836] border border-blue-900 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
               />
             </div>
-            <div>
-              <label className="text-xs font-bold text-blue-300 block mb-1">Tipo de Sesión</label>
-              <select
-                value={type}
-                onChange={e => setType(e.target.value as SessionType)}
-                className="w-full bg-[#081836] border border-blue-900 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
-              >
-                <option value="5v5 Competitivo">5v5 Competitivo</option>
-                <option value="Entrenamiento Táctico">Entrenamiento Táctico</option>
-                <option value="Partido Liga">Partido Liga</option>
-                <option value="Físico / Potencia">Físico / Potencia</option>
-                <option value="Tiro / Regenerativo">Tiro / Regenerativo</option>
-              </select>
+            <div className="sm:col-span-2 xl:col-span-2">
+              <fieldset>
+                <legend className="text-xs font-bold text-blue-300 mb-2">Tipo de sesión <span className="font-medium text-blue-300/70">(podés combinar)</span></legend>
+                <div className="flex flex-wrap gap-2">
+                  {SESSION_TYPES.map(sessionType => {
+                    const isSelected = types.includes(sessionType);
+                    return (
+                      <label
+                        key={sessionType}
+                        className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-600/25 text-sky-100'
+                            : 'border-blue-900 bg-[#081836] text-blue-200 hover:border-blue-700 hover:bg-blue-950'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSessionType(sessionType)}
+                          className="accent-blue-500"
+                        />
+                        {sessionType}
+                      </label>
+                    );
+                  })}
+                </div>
+                {types.length > 0 && (
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {types.map(sessionType => (
+                      <label key={sessionType} className="flex items-center justify-between gap-3 rounded-lg border border-blue-900/80 bg-[#081836] px-2.5 py-2 text-[11px] text-blue-100">
+                        <span>{sessionType}</span>
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          <input
+                            type="number"
+                            min={0}
+                            max={240}
+                            value={typeDurations[sessionType] ?? 0}
+                            onChange={e => {
+                              setTypeDurations(current => ({ ...current, [sessionType]: Number(e.target.value) }));
+                              setTypeError('');
+                            }}
+                            aria-label={`Minutos de ${sessionType}`}
+                            className="w-16 rounded-lg border border-blue-800 bg-[#040e21] px-2 py-1 text-right text-xs font-bold text-white focus:border-blue-500 focus:outline-none"
+                          />
+                          <span>min</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {typeError && <p role="alert" className="mt-1.5 text-[11px] text-rose-300">{typeError}</p>}
+              </fieldset>
             </div>
             <div>
-              <label className="text-xs font-bold text-blue-300 block mb-1">Duración (min)</label>
-              <input
-                type="number"
-                required
-                min={10}
-                max={240}
-                value={durationMinutes}
-                onChange={e => setDurationMinutes(Number(e.target.value))}
-                className="w-full bg-[#081836] border border-blue-900 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
-              />
+              <label className="text-xs font-bold text-blue-300 block mb-1">Duración total</label>
+              <output aria-live="polite" className="flex min-h-8 items-center rounded-xl border border-blue-800 bg-[#081836] px-3 py-1.5 text-sm font-black text-white">
+                {totalDurationMinutes} min
+              </output>
+              <p className="mt-1 text-[10px] text-blue-300/70">Suma de los minutos por tipo</p>
             </div>
           </div>
 

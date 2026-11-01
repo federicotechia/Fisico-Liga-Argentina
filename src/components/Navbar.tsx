@@ -135,7 +135,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 {sessions.map((sess) => (
                   <option key={sess.id} value={sess.id} className="bg-[#071326] text-white">
-                    {sess.title} ({sess.date}) - {sess.type}
+                    {sess.title} ({sess.date}) - {Array.isArray(sess.type) ? sess.type.join(' + ') : sess.type}
                   </option>
                 ))}
               </select>

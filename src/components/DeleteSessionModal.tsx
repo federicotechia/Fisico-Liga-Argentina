@@ -75,7 +75,7 @@ export const DeleteSessionModal: React.FC<DeleteSessionModalProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-blue-400">Tipo:</span>
-                  <strong className="text-white">{session.type}</strong>
+                  <strong className="text-white">{Array.isArray(session.type) ? session.type.join(' + ') : session.type}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-blue-400">Duración:</span>

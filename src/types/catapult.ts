@@ -1,6 +1,7 @@
 export type BasketballPosition = 'Base' | 'Escolta' | 'Alero' | 'Ala-Pivot' | 'Pivot';
 
 export type SessionType = 'Entrenamiento Táctico' | 'Partido Liga' | 'Físico / Potencia' | 'Tiro / Regenerativo' | '5v5 Competitivo';
+export type SessionTypeSelection = SessionType | SessionType[];
 
 export interface PlayerSessionRecord {
   playerId: string;
@@ -22,7 +23,8 @@ export interface Session {
   sessionNumber: number;
   date: string;           // YYYY-MM-DD or DD/MM/YYYY
   title: string;          // e.g. "SESIÓN 39"
-  type: SessionType;
+  type: SessionTypeSelection;
+  typeDurations?: Partial<Record<SessionType, number>>;
   durationMinutes: number;
   records: PlayerSessionRecord[];
   notes?: string;

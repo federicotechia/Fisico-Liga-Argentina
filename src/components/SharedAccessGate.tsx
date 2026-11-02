@@ -16,6 +16,7 @@ interface SharedAccessGateProps {
     isSaving: boolean;
     isImporting: boolean;
     syncError: string | null;
+    onSignOut: () => Promise<void>;
     onSave: (data: DashboardData) => Promise<boolean>;
     onImportLocal: () => Promise<void>;
   }) => React.ReactNode;
@@ -243,6 +244,7 @@ export const SharedAccessGate: React.FC<SharedAccessGateProps> = ({ children }) 
       isSaving,
       isImporting,
       syncError,
+      onSignOut: handleSignOut,
       onSave,
       onImportLocal,
     })}

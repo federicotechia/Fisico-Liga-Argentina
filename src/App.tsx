@@ -34,6 +34,7 @@ interface DashboardAppProps {
   userEmail?: string;
   canEdit?: boolean;
   canManageUsers?: boolean;
+  onSignOut?: () => Promise<void>;
   isImporting?: boolean;
   syncError?: string | null;
   onSave?: (data: DashboardData) => Promise<boolean>;
@@ -67,6 +68,7 @@ export default function App() {
           userEmail={shared.userEmail}
           canEdit={shared.role === 'owner' || shared.role === 'trainer'}
           canManageUsers={shared.role === 'owner'}
+          onSignOut={shared.onSignOut}
           isImporting={shared.isImporting}
           syncError={shared.syncError}
           onSave={shared.onSave}
@@ -85,6 +87,7 @@ function DashboardApp({
   userEmail = '',
   canEdit = true,
   canManageUsers = false,
+  onSignOut,
   isImporting = false,
   syncError,
   onSave,
@@ -338,6 +341,7 @@ function DashboardApp({
         canEdit={canEdit}
         canManageUsers={canManageUsers}
         onOpenMembers={() => setIsMembersModalOpen(true)}
+        onSignOut={onSignOut}
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
         analysisScope={analysisScope}

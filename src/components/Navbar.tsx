@@ -12,6 +12,7 @@ import {
   Check,
   Trash2,
   Users,
+  LogOut,
 } from 'lucide-react';
 import { SeasonCompetition, Session } from '../types/catapult';
 import { CADNorteLogo } from './CADNorteLogo';
@@ -34,6 +35,7 @@ interface NavbarProps {
   canEdit?: boolean;
   canManageUsers?: boolean;
   onOpenMembers?: () => void;
+  onSignOut?: () => Promise<void>;
   dateRange: { start: string; end: string };
   onDateRangeChange: (range: { start: string; end: string }) => void;
   analysisScope: 'range' | 'global';
@@ -57,6 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   canEdit = true,
   canManageUsers = false,
   onOpenMembers,
+  onSignOut,
   dateRange,
   onDateRangeChange,
   analysisScope,
@@ -217,6 +220,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Quick Actions */}
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-blue-950/80 bg-[#040c1a] p-1.5 shadow-inner">
+            {onSignOut && <button
+              type="button"
+              onClick={() => void onSignOut()}
+              title="Cerrar sesión de Google"
+              aria-label="Cerrar sesión"
+              className="flex items-center gap-1.5 rounded-xl border border-blue-800/80 bg-[#091b38] px-3 py-2 text-xs font-bold text-blue-200 transition-colors hover:border-rose-700 hover:bg-rose-950/60 hover:text-white"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Cerrar sesión</span>
+            </button>}
+
             {canEdit && <button
               onClick={onOpenSyncModal}
               title="Sincronizar pestañas de Google Sheets o importar OpenField"

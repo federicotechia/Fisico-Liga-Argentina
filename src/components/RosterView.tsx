@@ -28,6 +28,7 @@ interface RosterViewProps {
   season: SeasonCompetition;
   onAddPlayer: () => void;
   onAddSeason: () => void;
+  canEdit?: boolean;
 }
 
 export const RosterView: React.FC<RosterViewProps> = ({
@@ -40,6 +41,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
   season,
   onAddPlayer,
   onAddSeason,
+  canEdit = true,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('all');
@@ -76,12 +78,12 @@ export const RosterView: React.FC<RosterViewProps> = ({
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2 relative z-10">
-          <button onClick={onAddPlayer} className="inline-flex items-center gap-1.5 rounded-xl border border-blue-400/40 bg-blue-600 px-3 py-2 text-xs font-black text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500">
+          {canEdit && <button onClick={onAddPlayer} className="inline-flex items-center gap-1.5 rounded-xl border border-blue-400/40 bg-blue-600 px-3 py-2 text-xs font-black text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500">
             <UserPlus className="h-3.5 w-3.5" /> Agregar jugador
-          </button>
-          <button onClick={onAddSeason} className="inline-flex items-center gap-1.5 rounded-xl border border-blue-800 bg-[#091b38] px-3 py-2 text-xs font-bold text-blue-100 hover:border-blue-500 hover:text-white">
+          </button>}
+          {canEdit && <button onClick={onAddSeason} className="inline-flex items-center gap-1.5 rounded-xl border border-blue-800 bg-[#091b38] px-3 py-2 text-xs font-bold text-blue-100 hover:border-blue-500 hover:text-white">
             <CalendarPlus className="h-3.5 w-3.5" /> Nueva temporada
-          </button>
+          </button>}
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-blue-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
@@ -190,8 +192,8 @@ export const RosterView: React.FC<RosterViewProps> = ({
               <div className="mt-4 pt-3 border-t border-blue-900/60 flex items-center justify-between text-xs text-blue-300">
                 <span className="text-[11px]">Sesión actual: <strong className="text-white">{metric?.record.totPL || 0} PL</strong></span>
                 <div className="flex gap-2">
-                  <button onClick={(e) => { e.stopPropagation(); onEditPlayer(player); }} className="text-amber-400 font-bold hover:text-white">Editar</button>
-                  <button
+                  {canEdit && <button onClick={(e) => { e.stopPropagation(); onEditPlayer(player); }} className="text-amber-400 font-bold hover:text-white">Editar</button>}
+                  {canEdit && <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onDeletePlayer(player); }}
                     aria-label={`Eliminar a ${player.name}`}
@@ -199,7 +201,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
                     className="text-rose-400 hover:text-white p-1 rounded-lg hover:bg-rose-500/20 transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  </button>}
                   <span className="text-sky-400 font-bold flex items-center gap-0.5 text-xs cursor-pointer" onClick={() => onSelectPlayer(player.id)}>
                     Ver Ficha <ChevronRight className="w-3.5 h-3.5" />
                   </span>

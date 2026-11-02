@@ -3,12 +3,14 @@ import { Session as AuthSession } from '@supabase/supabase-js';
 import { AlertTriangle, Cloud, LoaderCircle, LogIn, LogOut } from 'lucide-react';
 import { CADNorteLogo } from './CADNorteLogo';
 import { DashboardData, hasSavedLocalDashboardData, readLocalDashboardData } from '../lib/localDashboardData';
-import { loadSharedDashboardData, saveSharedDashboardData, SharedDashboardSnapshot } from '../lib/sharedDashboardData';
+import { loadSharedDashboardData, saveSharedDashboardData, SharedDashboardSnapshot, WorkspaceRole } from '../lib/sharedDashboardData';
 import { supabase } from '../lib/supabaseClient';
 
 interface SharedAccessGateProps {
   children: (state: {
     data: DashboardData;
+    role: WorkspaceRole;
+    userEmail: string;
     revision: number;
     canImportLocal: boolean;
     isSaving: boolean;
@@ -42,6 +44,7 @@ export const SharedAccessGate: React.FC<SharedAccessGateProps> = ({ children }) 
   const [isImporting, setIsImporting] = useState(false);
   const revisionRef = useRef(0);
   const authUserIdRef = useRef<string | null>(null);
+  const roleRef = useRef<WorkspaceRole | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -57,6 +60,7 @@ export const SharedAccessGate: React.FC<SharedAccessGateProps> = ({ children }) 
       const nextUserId = session?.user.id ?? null;
       if (authUserIdRef.current !== nextUserId) {
         authUserIdRef.current = nextUserId;
+        roleRef.current = null;
         setShared(null);
         setLoadError(null);
         setSyncError(null);
@@ -74,6 +78,7 @@ export const SharedAccessGate: React.FC<SharedAccessGateProps> = ({ children }) 
     if (!userEmail) return null;
     const next = await loadSharedDashboardData(userEmail);
     revisionRef.current = next.revision;
+    roleRef.current = next.role;
     setShared(next);
     setLoadError(null);
     return next;
@@ -88,12 +93,42 @@ export const SharedAccessGate: React.FC<SharedAccessGateProps> = ({ children }) 
       .then(snapshot => {
         if (!alive) return;
         revisionRef.current = snapshot.revision;
+        roleRef.current = snapshot.role;
         setShared(snapshot);
       })
       .catch(error => { if (alive) setLoadError(errorText(error)); });
 
     const poll = window.setInterval(async () => {
       if (!alive || !supabase) return;
+      const membership = await supabase
+        .from('workspace_members')
+        .select('role')
+        .eq('workspace_id', 'cad-norte')
+        .eq('email', authSession.user.email!.trim().toLowerCase())
+        .maybeSingle();
+      if (membership.error) return;
+      if (!membership.data) {
+        roleRef.current = null;
+        await supabase.auth.signOut();
+        return;
+      }
+      if (membership.data.role !== roleRef.current) {
+        try {
+          const snapshot = await loadSharedDashboardData(authSession.user.email!);
+          if (!alive) return;
+          if (!snapshot.authorized) {
+            roleRef.current = null;
+            await supabase.auth.signOut();
+            return;
+          }
+          roleRef.current = snapshot.role;
+          revisionRef.current = snapshot.revision;
+          setShared(snapshot);
+          setSyncError(null);
+        } catch (error) {
+          if (alive) setLoadError(errorText(error));
+        }
+      }
       const { data, error } = await supabase
         .from('workspace_sync_state')
         .select('revision')
@@ -150,7 +185,7 @@ export const SharedAccessGate: React.FC<SharedAccessGateProps> = ({ children }) 
   }, [refreshSharedData]);
 
   const onImportLocal = useCallback(async () => {
-    if (!shared || shared.data.sessions.length > 0 || shared.data.roster.length > 0) return;
+    if (!shared || shared.role === 'viewer' || shared.data.sessions.length > 0 || shared.data.roster.length > 0) return;
     if (!hasSavedLocalDashboardData()) {
       setSyncError('Este navegador no tiene datos locales guardados para importar.');
       return;
@@ -197,10 +232,12 @@ export const SharedAccessGate: React.FC<SharedAccessGateProps> = ({ children }) 
 
   if (!shared) return <PageFrame><div className="flex items-center justify-center gap-3 text-sm text-blue-200"><LoaderCircle className="h-5 w-5 animate-spin" />Cargando jugadores y sesiones...</div></PageFrame>;
 
-  const canImportLocal = shared.data.sessions.length === 0 && shared.data.roster.length === 0 && hasSavedLocalDashboardData();
+  const canImportLocal = shared.role !== 'viewer' && shared.data.sessions.length === 0 && shared.data.roster.length === 0 && hasSavedLocalDashboardData();
   return <>
     {children({
       data: shared.data,
+      role: shared.role || 'viewer',
+      userEmail: authSession.user.email || '',
       revision: shared.revision,
       canImportLocal,
       isSaving,

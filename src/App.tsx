@@ -21,6 +21,7 @@ import { EditPlayerModal } from './components/EditPlayerModal';
 import { DeletePlayerModal } from './components/DeletePlayerModal';
 import { AddPlayerModal } from './components/AddPlayerModal';
 import { AddSeasonModal } from './components/AddSeasonModal';
+import { WorkspaceMembersModal } from './components/WorkspaceMembersModal';
 import { DashboardData, DEFAULT_SEASON, LOCAL_STORAGE_KEYS, readLocalDashboardData } from './lib/localDashboardData';
 import { supabaseConfigured } from './lib/supabaseClient';
 import { SharedAccessGate } from './components/SharedAccessGate';
@@ -30,6 +31,9 @@ interface DashboardAppProps {
   initialData?: DashboardData;
   cloudRevision?: number;
   canImportLocal?: boolean;
+  userEmail?: string;
+  canEdit?: boolean;
+  canManageUsers?: boolean;
   isImporting?: boolean;
   syncError?: string | null;
   onSave?: (data: DashboardData) => Promise<boolean>;
@@ -60,6 +64,9 @@ export default function App() {
           initialData={shared.data}
           cloudRevision={shared.revision}
           canImportLocal={shared.canImportLocal}
+          userEmail={shared.userEmail}
+          canEdit={shared.role === 'owner' || shared.role === 'trainer'}
+          canManageUsers={shared.role === 'owner'}
           isImporting={shared.isImporting}
           syncError={shared.syncError}
           onSave={shared.onSave}
@@ -75,6 +82,9 @@ function DashboardApp({
   initialData,
   cloudRevision,
   canImportLocal = false,
+  userEmail = '',
+  canEdit = true,
+  canManageUsers = false,
   isImporting = false,
   syncError,
   onSave,
@@ -113,6 +123,7 @@ function DashboardApp({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddPlayerModalOpen, setIsAddPlayerModalOpen] = useState(false);
   const [isAddSeasonModalOpen, setIsAddSeasonModalOpen] = useState(false);
+  const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
 
   const activeSeason = seasons.find(season => season.id === activeSeasonId) || seasons[0] || DEFAULT_SEASON;
   const seasonSessions = useMemo(
@@ -324,6 +335,9 @@ function DashboardApp({
         onOpenReportModal={() => setIsReportModalOpen(true)}
         onOpenGuideModal={() => setIsGuideModalOpen(true)}
         onOpenDeleteModal={() => setIsDeleteModalOpen(true)}
+        canEdit={canEdit}
+        canManageUsers={canManageUsers}
+        onOpenMembers={() => setIsMembersModalOpen(true)}
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
         analysisScope={analysisScope}
@@ -356,13 +370,13 @@ function DashboardApp({
               session={currentSession}
               calculatedMetrics={calculatedMetrics}
               onSelectPlayer={setSelectedPlayerId}
-              onOpenDeleteModal={() => setIsDeleteModalOpen(true)}
+              onOpenDeleteModal={canEdit ? () => setIsDeleteModalOpen(true) : undefined}
             />
           ) : (
             <div className="rounded-3xl border border-blue-900 bg-[#081836] p-10 text-center">
               <h1 className="text-2xl font-black text-white">{activeSeason.season} · {activeSeason.competition}</h1>
               <p className="mt-2 text-sm text-blue-200">Esta temporada todavía no tiene sesiones cargadas.</p>
-              <button onClick={() => setIsAddModalOpen(true)} className="mt-5 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-black text-white hover:bg-blue-500">Cargar primera sesión</button>
+              {canEdit && <button onClick={() => setIsAddModalOpen(true)} className="mt-5 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-black text-white hover:bg-blue-500">Cargar primera sesión</button>}
             </div>
           )
         )}
@@ -386,6 +400,7 @@ function DashboardApp({
             season={activeSeason}
             onAddPlayer={() => setIsAddPlayerModalOpen(true)}
             onAddSeason={() => setIsAddSeasonModalOpen(true)}
+            canEdit={canEdit}
           />
         )}
       </main>
@@ -424,21 +439,21 @@ function DashboardApp({
         onClose={() => setSelectedPlayerId(null)}
       />
 
-      <GoogleSheetsSyncModal
+      {canEdit && <GoogleSheetsSyncModal
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
         onAddSession={handleAddSession}
         existingSessionsCount={seasonSessions.length}
-      />
+      />}
 
-      <AddSessionModal
+      {canEdit && <AddSessionModal
         key={activeSeason.id}
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAddSession={handleAddSession}
         roster={seasonRoster}
         nextSessionNumber={seasonSessions.length + 35}
-      />
+      />}
 
       {currentSession && <CoachReportModal
         isOpen={isReportModalOpen}
@@ -452,38 +467,44 @@ function DashboardApp({
         onClose={() => setIsGuideModalOpen(false)}
       />
 
-      <EditPlayerModal
+      {canEdit && <EditPlayerModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         player={playerToEdit || INITIAL_ROSTER[0]}
         onSave={handleUpdatePlayer}
-      />
+      />}
 
-      <DeletePlayerModal
+      {canEdit && <DeletePlayerModal
         player={playerToDelete}
         onClose={() => setPlayerToDelete(null)}
         onConfirmDelete={handleDeletePlayer}
-      />
+      />}
 
-      <AddPlayerModal
+      {canEdit && <AddPlayerModal
         isOpen={isAddPlayerModalOpen}
         season={activeSeason}
         onClose={() => setIsAddPlayerModalOpen(false)}
         onAdd={handleAddPlayer}
-      />
+      />}
 
-      <AddSeasonModal
+      {canEdit && <AddSeasonModal
         isOpen={isAddSeasonModalOpen}
         onClose={() => setIsAddSeasonModalOpen(false)}
         onAdd={handleAddSeason}
-      />
+      />}
 
-      {currentSession && <DeleteSessionModal
+      {canEdit && currentSession && <DeleteSessionModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         session={currentSession}
         onConfirmDelete={handleDeleteSession}
         totalSessions={seasonSessions.length}
+      />}
+
+      {canManageUsers && <WorkspaceMembersModal
+        isOpen={isMembersModalOpen}
+        currentEmail={userEmail}
+        onClose={() => setIsMembersModalOpen(false)}
       />}
 
 

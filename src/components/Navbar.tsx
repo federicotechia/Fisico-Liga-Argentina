@@ -10,7 +10,8 @@ import {
   ExternalLink,
   Share2,
   Check,
-  Trash2
+  Trash2,
+  Users,
 } from 'lucide-react';
 import { SeasonCompetition, Session } from '../types/catapult';
 import { CADNorteLogo } from './CADNorteLogo';
@@ -30,6 +31,9 @@ interface NavbarProps {
   onOpenReportModal: () => void;
   onOpenGuideModal: () => void;
   onOpenDeleteModal: () => void;
+  canEdit?: boolean;
+  canManageUsers?: boolean;
+  onOpenMembers?: () => void;
   dateRange: { start: string; end: string };
   onDateRangeChange: (range: { start: string; end: string }) => void;
   analysisScope: 'range' | 'global';
@@ -50,6 +54,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenReportModal,
   onOpenGuideModal,
   onOpenDeleteModal,
+  canEdit = true,
+  canManageUsers = false,
+  onOpenMembers,
   dateRange,
   onDateRangeChange,
   analysisScope,
@@ -162,7 +169,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </option>
                 ))}
               </select>
-              {currentSession && <button
+              {canEdit && currentSession && <button
                 onClick={onOpenDeleteModal}
                 title={`Eliminar ${currentSession.title}`}
                 className="p-1 text-blue-300/70 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors border border-transparent hover:border-rose-500/30"
@@ -210,23 +217,32 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Quick Actions */}
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-blue-950/80 bg-[#040c1a] p-1.5 shadow-inner">
-            <button
+            {canEdit && <button
               onClick={onOpenSyncModal}
               title="Sincronizar pestañas de Google Sheets o importar OpenField"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0b1d39] hover:bg-[#12305b] text-sky-200 border border-blue-700/60 rounded-xl text-xs font-bold transition-all shadow-sm"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-sky-400" />
               <span className="hidden sm:inline">Google Sheets</span>
-            </button>
+            </button>}
 
-            <button
+            {canEdit && <button
               onClick={onOpenAddModal}
               title="Registrar nueva sesión de entrenamiento o partido"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-[0.98] border border-blue-400/40"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span className="hidden md:inline">Nueva Sesión</span>
-            </button>
+            </button>}
+
+            {canManageUsers && <button
+              onClick={onOpenMembers}
+              title="Administrar usuarios y roles"
+              aria-label="Administrar usuarios y roles"
+              className="p-2 text-sky-200 hover:text-white bg-[#091b38] hover:bg-blue-900/50 rounded-xl border border-blue-800/80 transition-colors"
+            >
+              <Users className="w-4 h-4" />
+            </button>}
 
             <button
               onClick={handleCopyLink}

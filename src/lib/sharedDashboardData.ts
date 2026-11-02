@@ -4,8 +4,11 @@ import { supabase } from './supabaseClient';
 
 const WORKSPACE_ID = 'cad-norte';
 
+export type WorkspaceRole = 'owner' | 'trainer' | 'viewer';
+
 export interface SharedDashboardSnapshot {
   authorized: boolean;
+  role: WorkspaceRole | null;
   revision: number;
   data: DashboardData;
 }
@@ -24,6 +27,7 @@ export const loadSharedDashboardData = async (email: string): Promise<SharedDash
   if (!membership.data) {
     return {
       authorized: false,
+      role: null,
       revision: 0,
       data: { seasons: [DEFAULT_SEASON], roster: [], sessions: [] },
     };
@@ -49,6 +53,7 @@ export const loadSharedDashboardData = async (email: string): Promise<SharedDash
 
   return {
     authorized: true,
+    role: membership.data.role as WorkspaceRole,
     revision: Number(syncState.data.revision),
     data: {
       seasons: seasons.length ? seasons : [DEFAULT_SEASON],

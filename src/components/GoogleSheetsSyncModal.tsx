@@ -11,15 +11,17 @@ import {
   ArrowRight,
   RefreshCw
 } from 'lucide-react';
-import { Session, SessionType } from '../types/catapult';
+import { PlayerSummary, Session, SessionType } from '../types/catapult';
 import { parseDelimitedText, parseExcelFile, downloadGoogleSheetsTemplate } from '../utils/sheetParser';
+import { normalizePlayerName } from '../utils/playerIdentity';
 import { CADNorteLogo } from './CADNorteLogo';
 
 interface GoogleSheetsSyncModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddSession: (session: Session) => void;
+  onAddSession: (session: Session, assignments: Record<string, string>, importedNames: Record<string, string>) => void;
   existingSessionsCount: number;
+  roster: PlayerSummary[];
 }
 
 export const GoogleSheetsSyncModal: React.FC<GoogleSheetsSyncModalProps> = ({
@@ -27,6 +29,7 @@ export const GoogleSheetsSyncModal: React.FC<GoogleSheetsSyncModalProps> = ({
   onClose,
   onAddSession,
   existingSessionsCount,
+  roster,
 }) => {
   const [activeTab, setActiveTab] = useState<'paste' | 'file' | 'link' | 'template'>('paste');
   const [pastedData, setPastedData] = useState<string>(
@@ -52,6 +55,12 @@ juan scachi\t1827\t251\t128\t235`
   const [copiedHeader, setCopiedHeader] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [pendingImport, setPendingImport] = useState<{
+    session: Session;
+    successText: string;
+    assignments: Record<string, string>;
+    displayNames: Record<string, string>;
+  } | null>(null);
 
   const saveParsedSession = (result: ReturnType<typeof parseDelimitedText>, successText: string) => {
     const distanceError = result.warnings.find(warning =>
@@ -63,13 +72,63 @@ juan scachi\t1827\t251\t128\t235`
       return false;
     }
 
-    onAddSession(result.session);
-    setSuccessMessage(successText);
-    setTimeout(() => onClose(), 1200);
+    const assignments: Record<string, string> = {};
+    const displayNames: Record<string, string> = {};
+    result.session.records.forEach(record => {
+      const key = normalizePlayerName(record.playerName);
+      displayNames[key] = displayNames[key] || record.playerName;
+      if (assignments[key]) return;
+      const matches = roster.filter(player =>
+        normalizePlayerName(player.name) === key
+        || (player.aliases || []).some(alias => normalizePlayerName(alias) === key)
+      );
+      assignments[key] = matches.length === 1 ? matches[0].id : '';
+    });
+    setPendingImport({ session: result.session, successText, assignments, displayNames });
+    setSuccessMessage(null);
     return true;
   };
 
   if (!isOpen) return null;
+
+  const confirmImport = () => {
+    if (!pendingImport || Object.values(pendingImport.assignments).some(value => !value)) return;
+    const aliases = Object.fromEntries(Object.entries(pendingImport.displayNames).map(([key, name]) => [key, name]));
+    onAddSession(pendingImport.session, pendingImport.assignments, aliases);
+    setSuccessMessage(pendingImport.successText);
+    setPendingImport(null);
+    setTimeout(() => onClose(), 1200);
+  };
+
+  if (pendingImport) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
+        <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-blue-800/80 bg-[#081836] shadow-2xl">
+          <div className="flex items-center justify-between border-b border-blue-900/80 bg-[#040e21] p-5">
+            <div><h2 className="text-lg font-black text-white">Vincular nombres con el plantel</h2><p className="mt-1 text-xs text-blue-200">Las equivalencias manuales se guardarán en los perfiles de Supabase.</p></div>
+            <button type="button" onClick={() => setPendingImport(null)} aria-label="Cancelar importación" className="rounded-xl border border-blue-800 bg-blue-950 p-1.5 text-blue-300 hover:text-white"><X className="h-5 w-5" /></button>
+          </div>
+          <div className="space-y-3 overflow-y-auto p-5">
+            <p className="rounded-xl border border-sky-800/70 bg-sky-950/30 p-3 text-xs text-sky-100">Se normalizan automáticamente tildes, mayúsculas, espacios y el prefijo “Deportivo Norte”. Revisá los nombres sin coincidencia o con más de un perfil posible.</p>
+            {Object.entries(pendingImport.displayNames).map(([key, name]) => (
+              <label key={key} className="grid gap-2 rounded-xl border border-blue-900 bg-[#091b38] p-3 sm:grid-cols-[1fr_1fr] sm:items-center">
+                <span className="min-w-0"><span className="block truncate text-sm font-bold text-white">{name}</span><span className="text-[10px] text-blue-300">{pendingImport.assignments[key] === '__new__' ? 'Se creará un perfil nuevo' : pendingImport.assignments[key] ? 'Coincidencia con el plantel' : 'Elegí a quién corresponde'}</span></span>
+                <select aria-label={`Vincular ${name}`} value={pendingImport.assignments[key]} onChange={event => setPendingImport(current => current ? { ...current, assignments: { ...current.assignments, [key]: event.target.value } } : current)} className="w-full rounded-lg border border-blue-800 bg-[#040e21] px-3 py-2 text-xs text-white">
+                  <option value="">Seleccionar jugador…</option>
+                  <option value="__new__">Crear perfil nuevo</option>
+                  {roster.map(player => <option key={player.id} value={player.id}>{player.name}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ''}</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 border-t border-blue-900/80 p-4">
+            <button type="button" onClick={() => setPendingImport(null)} className="rounded-xl border border-blue-800 px-4 py-2 text-xs font-bold text-blue-200 hover:bg-blue-950">Volver</button>
+            <button type="button" onClick={confirmImport} disabled={Object.values(pendingImport.assignments).some(value => !value)} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">Confirmar e importar</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleParseAndSave = () => {
     try {

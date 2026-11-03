@@ -50,6 +50,8 @@ export interface PlayerSummary {
   avatarColor: string;
   injuryHistory?: string;
   observations?: string;
+  /** Alternate Catapult spellings mapped to this player during import. */
+  aliases?: string[];
 }
 
 export interface FatigueAlert {

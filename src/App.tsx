@@ -25,6 +25,7 @@ import { WorkspaceMembersModal } from './components/WorkspaceMembersModal';
 import { DashboardData, DEFAULT_SEASON, LOCAL_STORAGE_KEYS, readLocalDashboardData } from './lib/localDashboardData';
 import { supabaseConfigured } from './lib/supabaseClient';
 import { SharedAccessGate } from './components/SharedAccessGate';
+import { createPlayerIdFromName, normalizePlayerName } from './utils/playerIdentity';
 
 interface DashboardAppProps {
   cloudMode?: boolean;
@@ -254,41 +255,75 @@ function DashboardApp({
   }, [selectedPlayerId, calculatedMetrics]);
 
   // Handler to add newly synced/created session
-  const handleAddSession = (newSession: Session) => {
-    const sessionForSeason = { ...newSession, seasonId: activeSeason.id };
+  const handleAddSession = (newSession: Session, assignments: Record<string, string> = {}, importedNames: Record<string, string> = {}) => {
+    let nextRoster = [...roster];
+    const seasonPlayerBySource: Record<string, PlayerSummary> = {};
+    const duplicateProfileIds = new Set<string>();
+
+    Object.entries(assignments).forEach(([sourceKey, assignedId]) => {
+      let player = assignedId === '__new__'
+        ? undefined
+        : nextRoster.find(item => item.id === assignedId && (item.seasonId || DEFAULT_SEASON.id) === activeSeason.id);
+
+      if (assignedId === '__new__') {
+        const importedRecord = newSession.records.find(record => normalizePlayerName(record.playerName) === sourceKey);
+        player = {
+          id: `${createPlayerIdFromName(importedNames[sourceKey] || sourceKey, activeSeason.id)}-${crypto.randomUUID()}`,
+          seasonId: activeSeason.id,
+          name: importedNames[sourceKey] || sourceKey,
+          position: importedRecord?.position || 'Escolta',
+          jerseyNumber: importedRecord?.jerseyNumber || nextRoster.filter(item => (item.seasonId || DEFAULT_SEASON.id) === activeSeason.id).length + 1,
+          heightCm: 194,
+          weightKg: 90,
+          age: 25,
+          avatarColor: 'from-blue-500 to-indigo-600',
+        };
+      }
+
+      if (!player) return;
+
+      const duplicateProfiles = nextRoster.filter(item => item.id !== player!.id
+        && (item.seasonId || DEFAULT_SEASON.id) === activeSeason.id
+        && normalizePlayerName(item.name) === sourceKey);
+      duplicateProfiles.forEach(item => duplicateProfileIds.add(item.id));
+
+      const importedName = importedNames[sourceKey];
+      const aliases = importedName && normalizePlayerName(importedName) !== normalizePlayerName(player.name)
+        ? [...new Set([...(player.aliases || []), importedName])]
+        : player.aliases;
+      player = { ...player, aliases };
+      nextRoster = nextRoster.map(item => item.id === player!.id && (item.seasonId || DEFAULT_SEASON.id) === activeSeason.id ? player! : item);
+      if (!nextRoster.some(item => item.id === player!.id && (item.seasonId || DEFAULT_SEASON.id) === activeSeason.id)) nextRoster.push(player);
+      seasonPlayerBySource[sourceKey] = player;
+    });
+
+    nextRoster = nextRoster.filter(item => duplicateProfileIds.has(item.id)
+      ? (item.seasonId || DEFAULT_SEASON.id) !== activeSeason.id
+      : true);
+    const normalizeRecord = (record: Session['records'][number]) => {
+      const player = seasonPlayerBySource[normalizePlayerName(record.playerName)];
+      return player ? { ...record, playerId: player.id, playerName: player.name, position: player.position, jerseyNumber: player.jerseyNumber || record.jerseyNumber } : record;
+    };
+
+    const sessionForSeason = { ...newSession, seasonId: activeSeason.id, records: newSession.records.map(normalizeRecord) };
+    setRoster(nextRoster);
     setSessions(prev => {
       // Replace if existing with same id or title, otherwise append
-      const existsIndex = prev.findIndex(s => s.id === sessionForSeason.id || (s.seasonId === activeSeason.id && s.title.toLowerCase() === sessionForSeason.title.toLowerCase()));
+      const canonicalPrevious = prev.map(session => {
+        if ((session.seasonId || DEFAULT_SEASON.id) !== activeSeason.id) return session;
+        const records = session.records.map(record => {
+          const canonical = normalizeRecord(record);
+          return duplicateProfileIds.has(record.playerId) ? normalizeRecord(record) : canonical;
+        });
+        return records.some((record, index) => record !== session.records[index]) ? { ...session, records } : session;
+      });
+      const existsIndex = canonicalPrevious.findIndex(s => s.id === sessionForSeason.id || ((s.seasonId || DEFAULT_SEASON.id) === activeSeason.id && s.title.toLowerCase() === sessionForSeason.title.toLowerCase()));
       if (existsIndex >= 0) {
-        const copy = [...prev];
+        const copy = [...canonicalPrevious];
         copy[existsIndex] = sessionForSeason;
         return copy;
       }
-      return [...prev, sessionForSeason];
-    });
-
-    // Also update roster with any new athletes present in the session
-    sessionForSeason.records.forEach(rec => {
-      setRoster(prevRoster => {
-        const exists = prevRoster.some(p => p.seasonId === activeSeason.id && (p.id === rec.playerId || p.name.toLowerCase() === rec.playerName.toLowerCase()));
-        if (!exists) {
-          return [
-            ...prevRoster,
-            {
-              id: rec.playerId,
-              seasonId: activeSeason.id,
-              name: rec.playerName,
-              position: rec.position || 'Escolta',
-              jerseyNumber: rec.jerseyNumber || (prevRoster.filter(player => player.seasonId === activeSeason.id).length + 1),
-              heightCm: 194,
-              weightKg: 90,
-              age: 25,
-              avatarColor: 'from-blue-500 to-indigo-600',
-            },
-          ];
-        }
-        return prevRoster;
-      });
+      return [...canonicalPrevious, sessionForSeason];
     });
 
     setSelectedSessionId(sessionForSeason.id);
@@ -448,6 +483,7 @@ function DashboardApp({
         onClose={() => setIsSyncModalOpen(false)}
         onAddSession={handleAddSession}
         existingSessionsCount={seasonSessions.length}
+        roster={seasonRoster}
       />}
 
       {canEdit && <AddSessionModal

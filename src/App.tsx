@@ -25,7 +25,7 @@ import { WorkspaceMembersModal } from './components/WorkspaceMembersModal';
 import { DashboardData, DEFAULT_SEASON, LOCAL_STORAGE_KEYS, readLocalDashboardData } from './lib/localDashboardData';
 import { supabaseConfigured } from './lib/supabaseClient';
 import { SharedAccessGate } from './components/SharedAccessGate';
-import { createPlayerIdFromName, normalizePlayerName } from './utils/playerIdentity';
+import { canonicalizePlayerDisplayName, createPlayerIdFromName, normalizePlayerName, playerNameMatches } from './utils/playerIdentity';
 
 interface DashboardAppProps {
   cloudMode?: boolean;
@@ -146,8 +146,13 @@ function DashboardApp({
 
   const handleUpdatePlayer = (updatedPlayer: PlayerSummary) => {
     const playerSeasonId = updatedPlayer.seasonId || activeSeason.id;
+    const canonicalName = canonicalizePlayerDisplayName(updatedPlayer.name);
+    const aliases = [...new Set([
+      ...(updatedPlayer.aliases || []),
+      ...(canonicalName !== updatedPlayer.name ? [updatedPlayer.name] : []),
+    ])];
     setRoster(prev => prev.map(player => player.id === updatedPlayer.id && (player.seasonId || DEFAULT_SEASON.id) === playerSeasonId
-      ? { ...updatedPlayer, seasonId: playerSeasonId }
+      ? { ...updatedPlayer, name: canonicalName, aliases: aliases.length ? aliases : undefined, seasonId: playerSeasonId }
       : player));
   };
 
@@ -259,8 +264,20 @@ function DashboardApp({
     let nextRoster = [...roster];
     const seasonPlayerBySource: Record<string, PlayerSummary> = {};
     const duplicateProfileIds = new Set<string>();
+    const resolvedAssignments = { ...assignments };
+    const resolvedNames = { ...importedNames };
 
-    Object.entries(assignments).forEach(([sourceKey, assignedId]) => {
+    newSession.records.forEach(record => {
+      const sourceKey = normalizePlayerName(record.playerName);
+      resolvedNames[sourceKey] = resolvedNames[sourceKey] || record.playerName;
+      if (resolvedAssignments[sourceKey] !== undefined) return;
+      const rosterMatchById = seasonRoster.find(player => player.id === record.playerId);
+      const rosterMatchesByName = seasonRoster.filter(player => playerNameMatches(player.name, player.aliases, record.playerName));
+      const rosterMatch = rosterMatchById || (rosterMatchesByName.length === 1 ? rosterMatchesByName[0] : undefined);
+      resolvedAssignments[sourceKey] = rosterMatch?.id || '__new__';
+    });
+
+    Object.entries(resolvedAssignments).forEach(([sourceKey, assignedId]) => {
       let player = assignedId === '__new__'
         ? undefined
         : nextRoster.find(item => item.id === assignedId && (item.seasonId || DEFAULT_SEASON.id) === activeSeason.id);
@@ -268,9 +285,9 @@ function DashboardApp({
       if (assignedId === '__new__') {
         const importedRecord = newSession.records.find(record => normalizePlayerName(record.playerName) === sourceKey);
         player = {
-          id: `${createPlayerIdFromName(importedNames[sourceKey] || sourceKey, activeSeason.id)}-${crypto.randomUUID()}`,
+          id: `${createPlayerIdFromName(resolvedNames[sourceKey] || sourceKey, activeSeason.id)}-${crypto.randomUUID()}`,
           seasonId: activeSeason.id,
-          name: importedNames[sourceKey] || sourceKey,
+          name: canonicalizePlayerDisplayName(resolvedNames[sourceKey] || sourceKey),
           position: importedRecord?.position || 'Escolta',
           jerseyNumber: importedRecord?.jerseyNumber || nextRoster.filter(item => (item.seasonId || DEFAULT_SEASON.id) === activeSeason.id).length + 1,
           heightCm: 194,
@@ -282,16 +299,19 @@ function DashboardApp({
 
       if (!player) return;
 
-      const duplicateProfiles = nextRoster.filter(item => item.id !== player!.id
+      const duplicateProfiles = assignedId === '__new__' ? [] : nextRoster.filter(item => item.id !== player!.id
         && (item.seasonId || DEFAULT_SEASON.id) === activeSeason.id
         && normalizePlayerName(item.name) === sourceKey);
       duplicateProfiles.forEach(item => duplicateProfileIds.add(item.id));
 
-      const importedName = importedNames[sourceKey];
-      const aliases = importedName && normalizePlayerName(importedName) !== normalizePlayerName(player.name)
-        ? [...new Set([...(player.aliases || []), importedName])]
-        : player.aliases;
-      player = { ...player, aliases };
+      const importedName = resolvedNames[sourceKey];
+      const canonicalName = canonicalizePlayerDisplayName(player.name);
+      const aliases = [...new Set([
+        ...(player.aliases || []),
+        ...(canonicalName !== player.name ? [player.name] : []),
+        ...(importedName && normalizePlayerName(importedName) !== normalizePlayerName(canonicalName) ? [importedName] : []),
+      ])];
+      player = { ...player, name: canonicalName, aliases: aliases.length ? aliases : undefined };
       nextRoster = nextRoster.map(item => item.id === player!.id && (item.seasonId || DEFAULT_SEASON.id) === activeSeason.id ? player! : item);
       if (!nextRoster.some(item => item.id === player!.id && (item.seasonId || DEFAULT_SEASON.id) === activeSeason.id)) nextRoster.push(player);
       seasonPlayerBySource[sourceKey] = player;
@@ -329,7 +349,14 @@ function DashboardApp({
     setSelectedSessionId(sessionForSeason.id);
   };
 
-  const handleAddPlayer = (player: PlayerSummary) => setRoster(prev => [...prev, player]);
+  const handleAddPlayer = (player: PlayerSummary) => {
+    const canonicalName = canonicalizePlayerDisplayName(player.name);
+    setRoster(prev => [...prev, {
+      ...player,
+      name: canonicalName,
+      aliases: player.name !== canonicalName ? [...new Set([...(player.aliases || []), player.name])] : player.aliases,
+    }]);
+  };
 
   const handleAddSeason = (season: SeasonCompetition) => {
     setSeasons(prev => [...prev, season]);

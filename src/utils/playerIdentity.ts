@@ -1,13 +1,19 @@
 /** Normalize harmless variations from Catapult exports before matching a player. */
 export function normalizePlayerName(name: string): string {
-  return name
+  return canonicalizePlayerDisplayName(name)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/^\s*(?:club\s+)?(?:deportivo\s+norte|cad\s+norte)\s*[-–—:]?\s*/i, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
+}
+
+export function canonicalizePlayerDisplayName(name: string): string {
+  return name
+    .trim()
+    .replace(/^\s*(?:club\s+)?(?:deportivo\s+norte|cad\s+norte)\s*[-–—:]?\s*/i, '')
+    .trim();
 }
 
 export function playerNameMatches(name: string, aliases: string[] = [], candidate: string): boolean {
